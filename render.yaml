@@ -1,0 +1,34 @@
+# Render Blueprint: Dashboard → New → Blueprint → connect this repo.
+# Fill secret env vars when prompted, then apply.
+#
+# After deploy, set Vercel WORKER_URL to the Render service URL.
+
+services:
+  - type: web
+    name: keyboardwarrior-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WORKER_HOST
+        value: 0.0.0.0
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SESSION_ENCRYPTION_KEY
+        sync: false
+      - key: WORKER_SECRET
+        generateValue: true

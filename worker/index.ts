@@ -7,9 +7,10 @@ import { startCampaignScheduler } from "./engine/campaignScheduler";
 
 const main = async (): Promise<void> => {
   const app = buildServer();
+  const host = env.workerHost();
   const port = env.workerPort();
-  await app.listen({ port, host: "127.0.0.1" });
-  console.log(`[worker] control API listening on http://127.0.0.1:${port}`);
+  await app.listen({ port, host });
+  console.log(`[worker] control API listening on http://${host}:${port}`);
 
   // Start a listener for every logged-in account so we capture incoming
   // messages even when an account's auto-reply is off.

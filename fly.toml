@@ -1,0 +1,30 @@
+# Fly.io: install flyctl, then run:
+#   fly launch --no-deploy
+#   fly secrets set TELEGRAM_API_ID=... TELEGRAM_API_HASH=... (see deploy/README.md)
+#   fly deploy
+#
+# Set Vercel WORKER_URL to https://<app-name>.fly.dev
+
+app = "keyboardwarrior-worker"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  WORKER_HOST = "0.0.0.0"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"

@@ -143,6 +143,8 @@ before going live.
 
 - The worker must be running for login and live sending; the dashboard talks to
   it over `WORKER_URL`.
+- **Production:** deploy the dashboard to Vercel and the worker separately
+  (Railway, Render, Fly.io, or Docker). See [deploy/README.md](deploy/README.md).
 - This is a self-hosted, single-user tool. The browser uses a read-only anon
   key; all writes go through server routes / the worker using the service role.
 ```
