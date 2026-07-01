@@ -19,7 +19,15 @@ export const env = {
   // Railway/Render/Fly set PORT; local dev uses WORKER_PORT.
   workerPort: () =>
     parseInt(process.env.PORT || process.env.WORKER_PORT || "8787", 10),
-  // Bind 0.0.0.0 in Docker/cloud so the control API is reachable externally.
-  workerHost: () => process.env.WORKER_HOST || "127.0.0.1",
+  // On a container/PaaS (NODE_ENV=production or an injected PORT) the control
+  // API must bind all interfaces to be reachable, so we force 0.0.0.0 and
+  // ignore any stray WORKER_HOST=127.0.0.1 copied from a local .env. Only local
+  // dev honours WORKER_HOST (defaulting to loopback).
+  workerHost: () => {
+    if (process.env.NODE_ENV === "production" || process.env.PORT) {
+      return "0.0.0.0";
+    }
+    return process.env.WORKER_HOST || "127.0.0.1";
+  },
   workerSecret: () => process.env.WORKER_SECRET || "change-me",
 };
