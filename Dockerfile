@@ -1,5 +1,7 @@
 # Long-running Telegram worker + control API (deploy separately from the Vercel dashboard).
-FROM node:20-alpine
+# Node 22+ is required: @supabase/supabase-js (realtime-js) needs a native global
+# WebSocket, which does not exist on Node 20 and makes getServiceClient() throw.
+FROM node:22-alpine
 
 WORKDIR /app
 
