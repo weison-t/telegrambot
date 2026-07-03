@@ -5,9 +5,15 @@ import { env } from "../env";
 import { clientManager, type TelegramUserInfo } from "../telegram/clientManager";
 import { startCampaign, requestStop, isRunning } from "../engine/runCampaign";
 import {
+  startBroadcast,
+  requestStop as requestBroadcastStop,
+  isRunning as isBroadcastRunning,
+} from "../engine/runBroadcast";
+import {
   startAutoResponder,
   stopAutoResponder,
 } from "../engine/autoResponder";
+import { runPhoneLookupBatch } from "../engine/phoneLookup";
 
 const persistLoggedIn = async (
   accountId: string,
@@ -254,6 +260,88 @@ export const buildServer = () => {
         .update({ status: "stopped" })
         .eq("id", id);
       return { status: "stopped" };
+    }
+  );
+
+  app.post(
+    "/broadcasts/:id/start",
+    async (request: FastifyRequest<{ Params: IdParams }>, reply) => {
+      const { id } = request.params;
+      if (isBroadcastRunning(id))
+        return reply.code(409).send({ error: "Broadcast already running." });
+      try {
+        await startBroadcast(id);
+        return { status: "running" };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.code(400).send({ error: message });
+      }
+    }
+  );
+
+  app.post(
+    "/broadcasts/:id/pause",
+    async (request: FastifyRequest<{ Params: IdParams }>) => {
+      const { id } = request.params;
+      const supabase = getServiceClient();
+      await supabase
+        .from("kw_broadcasts")
+        .update({ status: "paused" })
+        .eq("id", id);
+      return { status: "paused" };
+    }
+  );
+
+  app.post(
+    "/broadcasts/:id/stop",
+    async (request: FastifyRequest<{ Params: IdParams }>) => {
+      const { id } = request.params;
+      requestBroadcastStop(id);
+      const supabase = getServiceClient();
+      await supabase
+        .from("kw_broadcasts")
+        .update({ status: "stopped" })
+        .eq("id", id);
+      return { status: "stopped" };
+    }
+  );
+
+  type PhoneLookupBody = {
+    batchId?: string;
+    accountId?: string;
+    phones?: string[];
+  };
+
+  app.post(
+    "/lookup/phone",
+    async (request: FastifyRequest<{ Body: PhoneLookupBody }>, reply) => {
+      const { batchId, accountId, phones } = request.body ?? {};
+      if (!batchId || !accountId || !Array.isArray(phones) || !phones.length) {
+        return reply
+          .code(400)
+          .send({ error: "batchId, accountId and phones[] are required." });
+      }
+
+      const supabase = getServiceClient();
+      const { data } = await supabase
+        .from("kw_accounts")
+        .select("session_enc")
+        .eq("id", accountId)
+        .single();
+      if (!data?.session_enc) {
+        return reply
+          .code(400)
+          .send({ error: "Account is not logged in. Connect it first." });
+      }
+
+      // Fire-and-forget: the batch runs in the background and streams progress
+      // to the DB (and the UI via realtime). Return immediately.
+      void runPhoneLookupBatch(batchId, accountId, phones).catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[lookup ${batchId}] batch failed:`, message);
+      });
+
+      return { ok: true, batchId };
     }
   );
 

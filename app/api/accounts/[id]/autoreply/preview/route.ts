@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { getServiceClient } from "@/lib/supabase";
 import {
   buildAutoReplyMessages,
+  isSmallTalk,
   lengthBudget,
   sanitizeReply,
   splitIntoMessages,
@@ -58,6 +59,9 @@ export const POST = async (
     account?.label ||
     "Me";
 
+  // Greetings/small-talk collapse to one short casual line, mirroring the worker.
+  const brief = isSmallTalk(text);
+
   const { system, user, maxTokens } = buildAutoReplyMessages({
     personaName,
     persona: s.autoreply_persona ?? null,
@@ -77,6 +81,7 @@ export const POST = async (
     avoid: s.autoreply_avoid ?? null,
     signoff: s.autoreply_signoff ?? null,
     noAssistantTone: s.autoreply_no_assistant_tone ?? true,
+    brief,
   });
 
   const openai = new OpenAI({ apiKey });
@@ -96,7 +101,7 @@ export const POST = async (
     );
     const chunks = splitIntoMessages(
       reply,
-      lengthBudget(s.autoreply_length ?? null).maxSentences
+      brief ? 1 : lengthBudget(s.autoreply_length ?? null).maxSentences
     );
     return NextResponse.json({ reply, chunks });
   } catch (err) {

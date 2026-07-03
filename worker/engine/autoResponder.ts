@@ -1,10 +1,14 @@
 import { TelegramClient, Api } from "telegram";
-import { NewMessage, NewMessageEvent } from "telegram/events";
+import { NewMessage, NewMessageEvent, Raw } from "telegram/events";
 import { DateTime } from "luxon";
 import { getServiceClient } from "@/lib/supabase";
 import { decryptSession } from "@/lib/crypto";
 import type { Account, AppointmentRequest, MediaRelay } from "@/lib/types";
-import { lengthBudget, splitIntoMessages } from "@/lib/autoreplyPrompt";
+import {
+  lengthBudget,
+  splitIntoMessages,
+  isSmallTalk,
+} from "@/lib/autoreplyPrompt";
 import { clientManager } from "../telegram/clientManager";
 import {
   generateAutoReply,
@@ -19,6 +23,7 @@ import {
   type HistoryLine,
 } from "../openai";
 import { isEmojiOnly, pickSimilarEmoji } from "../emoji";
+import { maybeHandleBroadcastReply, markBroadcastRead } from "./broadcastReply";
 import {
   createCalendarEvent,
   localToUtcIso,
@@ -39,6 +44,9 @@ type Registration = {
   client: TelegramClient;
   handler: (event: NewMessageEvent) => Promise<void>;
   builder: NewMessage;
+  // Raw update handler for outbox read receipts (broadcast read tracking).
+  rawHandler: (update: Api.TypeUpdate) => Promise<void>;
+  rawBuilder: Raw;
 };
 
 // The preset person an account relays appointment requests to.
@@ -1215,6 +1223,13 @@ const handleEvent = async (
     : null;
   await captureIncoming(accountId, event, captureSender);
 
+  // Broadcast recipients: record the reply (respond-rate) and, if enabled, let
+  // the broadcast's own AI answer with its product knowledge. This runs even
+  // when the account's normal auto-reply is off, and takes precedence over it.
+  if (await maybeHandleBroadcastReply(accountId, client, event, captureSender)) {
+    return;
+  }
+
   // Auto-reply turned off for this account: capture only, nothing else.
   if (!autoReplyActive) return;
 
@@ -1608,6 +1623,10 @@ const processPending = async (pending: PendingMsg): Promise<void> => {
       }
     }
 
+    // Greetings/small-talk ("hi", "how are you") get a short, casual one-liner
+    // regardless of the configured length so they don't feel long or robotic.
+    const brief = isSmallTalk(incomingText);
+
     const reply = await generateAutoReply({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       personaName,
@@ -1634,6 +1653,8 @@ const processPending = async (pending: PendingMsg): Promise<void> => {
       noAssistantTone: account.autoreply_no_assistant_tone,
       // Sender may be probing for a bot; reply extra naturally and deflect.
       guarded,
+      // Keep greetings to a single short human line.
+      brief,
       // With relay on, never let the persona self-confirm meeting times.
       noSelfSchedule: Boolean(
         account.autoreply_appointment_enabled && receiverInfo
@@ -1642,9 +1663,10 @@ const processPending = async (pending: PendingMsg): Promise<void> => {
     if (!reply) return;
 
     // Split a long reply into natural messages sized to the length preference.
+    // Greetings collapse to a single chunk even if the model over-answers.
     chunks = splitIntoMessages(
       reply,
-      lengthBudget(account.autoreply_length).maxSentences
+      brief ? 1 : lengthBudget(account.autoreply_length).maxSentences
     );
   }
 
@@ -1787,7 +1809,28 @@ export const startAutoResponder = async (accountId: string): Promise<void> => {
   };
 
   client.addEventHandler(handler, builder);
-  registry.set(accountId, { client, handler, builder });
+
+  // Track when broadcast recipients read our messages (read-rate stat). The
+  // peer's outbox read pointer advances via UpdateReadHistoryOutbox.
+  const rawBuilder = new Raw({});
+  const rawHandler = async (update: Api.TypeUpdate): Promise<void> => {
+    try {
+      if (!(update instanceof Api.UpdateReadHistoryOutbox)) return;
+      const peer = update.peer;
+      let peerId: string | null = null;
+      if (peer instanceof Api.PeerUser) peerId = String(peer.userId);
+      else if (peer instanceof Api.PeerChat) peerId = String(peer.chatId);
+      else if (peer instanceof Api.PeerChannel) peerId = String(peer.channelId);
+      if (!peerId) return;
+      await markBroadcastRead(accountId, peerId, update.maxId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[autoreply ${accountId}] read handler error:`, message);
+    }
+  };
+  client.addEventHandler(rawHandler, rawBuilder);
+
+  registry.set(accountId, { client, handler, builder, rawHandler, rawBuilder });
   console.log(
     `[autoreply ${accountId}] listening for incoming messages` +
       (autoReplyActive ? "" : " (capture only; auto-reply off)")
@@ -1808,6 +1851,7 @@ export const stopAutoResponder = async (accountId: string): Promise<void> => {
   if (!reg) return;
   try {
     reg.client.removeEventHandler(reg.handler, reg.builder);
+    reg.client.removeEventHandler(reg.rawHandler, reg.rawBuilder);
   } catch {
     // ignore
   }

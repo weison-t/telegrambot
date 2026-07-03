@@ -35,6 +35,43 @@ export type AutoReplyPromptInput = AutoReplyStyle & {
   history: HistoryLine[];
   incomingText: string;
   noSelfSchedule?: boolean;
+  // When true, the incoming message is just a greeting/small-talk, so reply with
+  // one short casual line regardless of the configured length.
+  brief?: boolean;
+};
+
+// Whole-message greeting/small-talk phrases. Matched against the normalized
+// message so "hi, can you send pricing?" is NOT treated as small-talk.
+const SMALL_TALK_PATTERNS: RegExp[] = [
+  /^(?:hi+|hey+|hello+|yo+|hiya|heya|helo|hallo|sup|wsup|wassup|whatsup)$/,
+  /^g(?:ood)?\s?m(?:orning|orn)?$/, // gm, good morning
+  /^g(?:ood)?\s?n(?:ight|ite)?$/, // gn, good night
+  /^good\s(?:afternoon|evening|day)$/,
+  /^(?:morning|afternoon|evening)$/,
+  /^how\s(?:are|r|is)\s(?:you|u|ya|things|it going|everything)(?:\sdoing)?$/,
+  /^how(?:'?s| is)\s(?:it going|things|everything|life|your day)$/,
+  /^hru$/,
+  /^hbu$/,
+  /^wyd$/,
+  /^what(?:'?s| is| you| u)?\s?(?:up|doing|good|new)$/,
+  /^(?:you|u)\s(?:good|ok|okay|alright)$/,
+  /^long\stime\sno\ssee$/,
+  /^nice\sto\s(?:meet|meecha|meetcha)\s(?:you|u)$/,
+];
+
+// True only when the ENTIRE message is a greeting/small-talk phrase. Used to
+// force a short, human one-line reply for greetings like "hi" / "how are you".
+export const isSmallTalk = (text: string): boolean => {
+  const normalized = text
+    .toLowerCase()
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, " ")
+    .replace(/[^\p{L}\p{N}\s']/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return false;
+  // Guard: small-talk phrases are short; anything longer is likely substantive.
+  if (normalized.split(" ").length > 6) return false;
+  return SMALL_TALK_PATTERNS.some((re) => re.test(normalized));
 };
 
 export type LengthBudget = {
@@ -119,7 +156,9 @@ export type BuiltPrompt = {
 export const buildAutoReplyMessages = (
   input: AutoReplyPromptInput
 ): BuiltPrompt => {
-  const budget = lengthBudget(input.length);
+  // Greetings/small-talk always collapse to a terse one-liner, overriding a
+  // chatty/normal length setting so they don't feel long or robotic.
+  const budget = lengthBudget(input.brief ? "terse" : input.length);
 
   const system = [
     `You are "${input.personaName}", a real person replying on Telegram in ${
@@ -164,6 +203,9 @@ export const buildAutoReplyMessages = (
       ? `- IMPORTANT: Do NOT confirm, agree to, lock in, or propose any specific meeting/appointment date or time yourself. If they bring up scheduling or suggest a time, stay friendly but non-committal (e.g. "let me check and get back to you") and do not commit to anything.`
       : ``,
     input.instructions ? `- Extra direction: ${input.instructions}` : ``,
+    input.brief
+      ? `- This is just a casual greeting/small-talk. Reply with ONE short, breezy line like a real person texting (e.g. "heyy", "yo whats good", "not much, you?", "im good, you?"). Do NOT be formal, do NOT explain, do NOT offer help, and do NOT write multiple sentences. A quick question back is fine.`
+      : ``,
     input.senderName
       ? `- The person you are talking to is named "${input.senderName}". You already know their name, so NEVER ask what their name is. Use their name naturally once in a while when it fits (like a friend would), not in every message.`
       : ``,

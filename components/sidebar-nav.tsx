@@ -10,6 +10,8 @@ import {
   MessageCircleReply,
   MessagesSquare,
   CalendarDays,
+  Search,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,9 +26,11 @@ const navItems: NavItem[] = [
   { href: "/accounts", label: "Accounts", icon: Users },
   { href: "/autoreply", label: "Auto-reply", icon: MessageCircleReply },
   { href: "/conversations", label: "Conversations", icon: MessagesSquare },
+  { href: "/telegram-id-search", label: "Telegram ID Search", icon: Search },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/campaigns", label: "Campaigns", icon: Swords },
   { href: "/campaigns/new", label: "New campaign", icon: PlusCircle },
+  { href: "/broadcasts", label: "Broadcasts", icon: Megaphone },
 ];
 
 export const SidebarNav = () => {

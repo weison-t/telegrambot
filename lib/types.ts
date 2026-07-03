@@ -28,6 +28,78 @@ export type CalendarReminder = Tables["kw_calendar_reminders"]["Row"];
 export type Conversation = Tables["kw_conversations"]["Row"];
 export type ConversationInsert = Tables["kw_conversations"]["Insert"];
 
+export type PhoneLookupBatch = Tables["kw_phone_lookup_batches"]["Row"];
+export type PhoneLookupBatchInsert = Tables["kw_phone_lookup_batches"]["Insert"];
+export type PhoneLookupBatchUpdate = Tables["kw_phone_lookup_batches"]["Update"];
+
+export type PhoneLookupResult = Tables["kw_phone_lookup_results"]["Row"];
+export type PhoneLookupResultInsert =
+  Tables["kw_phone_lookup_results"]["Insert"];
+export type PhoneLookupResultUpdate =
+  Tables["kw_phone_lookup_results"]["Update"];
+
+export type Broadcast = Tables["kw_broadcasts"]["Row"];
+export type BroadcastInsert = Tables["kw_broadcasts"]["Insert"];
+export type BroadcastUpdate = Tables["kw_broadcasts"]["Update"];
+
+export type BroadcastAccount = Tables["kw_broadcast_accounts"]["Row"];
+export type BroadcastAccountInsert = Tables["kw_broadcast_accounts"]["Insert"];
+
+export type BroadcastTarget = Tables["kw_broadcast_targets"]["Row"];
+export type BroadcastTargetInsert = Tables["kw_broadcast_targets"]["Insert"];
+export type BroadcastTargetUpdate = Tables["kw_broadcast_targets"]["Update"];
+
+export type BroadcastStatus =
+  | "draft"
+  | "scheduled"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "done";
+
+export const BROADCAST_STATUSES: { value: BroadcastStatus; label: string }[] = [
+  { value: "draft", label: "Draft" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "running", label: "Running" },
+  { value: "paused", label: "Paused" },
+  { value: "stopped", label: "Stopped" },
+  { value: "done", label: "Done" },
+];
+
+// One recipient entry as sent from the builder (raw text + classified kind).
+export type BroadcastTargetInput = { input: string; kind: "username" | "id" };
+
+// Payload the dashboard sends to create a broadcast.
+export type CreateBroadcastPayload = {
+  name: string;
+  message: string;
+  account_ids: string[];
+  targets: string[];
+  min_delay_s: number;
+  max_delay_s: number;
+  per_account_daily_limit: number;
+  dry_run: boolean;
+  model: string;
+  reply_ai_enabled: boolean;
+  reply_knowledge?: string | null;
+  reply_persona?: string | null;
+  reply_instructions?: string | null;
+  reply_link?: string | null;
+  start_at?: string | null;
+  timezone?: string | null;
+  // When true (and not scheduled for later), the broadcast launches on create.
+  start_now?: boolean;
+};
+
+export type UpdateBroadcastPayload = Partial<CreateBroadcastPayload>;
+
+export type PhoneLookupSource = "single" | "multiple" | "batch";
+export type PhoneLookupStatus =
+  | "pending"
+  | "found"
+  | "not_found"
+  | "error";
+
 export type ConversationStatus = "ongoing" | "completed";
 
 export const CONVERSATION_STATUSES: {

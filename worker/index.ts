@@ -4,6 +4,7 @@ import { clientManager } from "./telegram/clientManager";
 import { startAllAccountListeners } from "./engine/autoResponder";
 import { startReminderScheduler } from "./engine/reminders";
 import { startCampaignScheduler } from "./engine/campaignScheduler";
+import { startBroadcastScheduler } from "./engine/broadcastScheduler";
 
 const main = async (): Promise<void> => {
   const app = buildServer();
@@ -23,6 +24,9 @@ const main = async (): Promise<void> => {
 
   // Poll for scheduled campaigns whose launch time has arrived.
   startCampaignScheduler();
+
+  // Poll for scheduled broadcasts whose launch time has arrived.
+  startBroadcastScheduler();
 
   const shutdown = async (): Promise<void> => {
     console.log("[worker] shutting down...");
