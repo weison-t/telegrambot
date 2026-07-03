@@ -18,6 +18,8 @@ export type AutoReplyStyle = {
   signoff?: string | null;
   // Per-contact memory (notes the persona "remembers" about this person).
   memory?: string | null;
+  // The name this person has told you they go by (from an earlier introduction).
+  senderName?: string | null;
   // When true, the sender may be probing whether this is a bot; reply extra
   // naturally and deflect bot accusations casually.
   guarded?: boolean;
@@ -162,6 +164,9 @@ export const buildAutoReplyMessages = (
       ? `- IMPORTANT: Do NOT confirm, agree to, lock in, or propose any specific meeting/appointment date or time yourself. If they bring up scheduling or suggest a time, stay friendly but non-committal (e.g. "let me check and get back to you") and do not commit to anything.`
       : ``,
     input.instructions ? `- Extra direction: ${input.instructions}` : ``,
+    input.senderName
+      ? `- The person you are talking to is named "${input.senderName}". You already know their name, so NEVER ask what their name is. Use their name naturally once in a while when it fits (like a friend would), not in every message.`
+      : ``,
     input.faq
       ? `\nFacts you may use ONLY when relevant or asked (do not volunteer them unprompted, and never invent beyond these):\n${input.faq}`
       : ``,

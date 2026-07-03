@@ -355,6 +355,7 @@ export type Database = {
           disabled: boolean;
           id: string;
           flagged_at: string | null;
+          known_name: string | null;
           last_message_at: string | null;
           last_threat_reason: string | null;
           notes: string | null;
@@ -375,6 +376,7 @@ export type Database = {
           disabled?: boolean;
           flagged_at?: string | null;
           id?: string;
+          known_name?: string | null;
           last_message_at?: string | null;
           last_threat_reason?: string | null;
           notes?: string | null;
@@ -395,6 +397,7 @@ export type Database = {
           disabled?: boolean;
           flagged_at?: string | null;
           id?: string;
+          known_name?: string | null;
           last_message_at?: string | null;
           last_threat_reason?: string | null;
           notes?: string | null;

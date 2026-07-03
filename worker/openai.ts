@@ -382,6 +382,59 @@ export const classifyThreat = async (
   }
 };
 
+// Cheap pre-filter so the name extractor only runs the LLM on messages that
+// look like someone introducing themselves. Keeps cost near zero on normal chat.
+const NAME_STATEMENT_PATTERNS: RegExp[] = [
+  /\b(?:i\s*am|i'?m|im)\s+[a-z]/i,
+  /\bmy\s+name(?:'?s| is)\b/i,
+  /\b(?:this|it'?s|its)\s+is\s+[a-z]/i,
+  /\bcall\s+me\b/i,
+  /\b(?:names|name'?s)\s+[a-z]/i,
+  /\b[a-z][a-z'.-]*\s+here\b/i, // "vinc here"
+  /我(?:叫|是|的名字)/, // Chinese: I'm called / I am / my name
+  /\b(?:nama\s+saya|saya\s+)\b/i, // Malay: my name is / I ...
+];
+
+export const looksLikeNameStatement = (text: string): boolean =>
+  NAME_STATEMENT_PATTERNS.some((re) => re.test(text));
+
+// Extract the personal name a sender states about THEMSELVES, if any. Returns
+// null when the message is not a self-introduction (e.g. "im good", questions).
+export const extractStatedName = async (
+  model: string,
+  incomingText: string
+): Promise<string | null> => {
+  const openai = getClient();
+  try {
+    const completion = await openai.chat.completions.create({
+      model,
+      temperature: 0,
+      max_tokens: 20,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: [
+            `You extract the personal name a person states about THEMSELVES in a chat message they sent (e.g. "hi, I'm John", "vinc here", "my name is Aaron", "call me AJ").`,
+            `Respond ONLY with JSON: {"name": string | null}.`,
+            `Rules:`,
+            `- Return the name exactly as a proper first name/nickname, capitalized normally (e.g. "John").`,
+            `- Return null if they are NOT introducing themselves, e.g. "i'm good", "i'm tired", "i'm here", questions, or if they state someone else's name.`,
+            `- Never invent a name that is not clearly given. When unsure, return null.`,
+          ].join("\n"),
+        },
+        { role: "user", content: incomingText },
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw) as { name?: string | null };
+    const name = (parsed.name ?? "").trim();
+    return name ? name : null;
+  } catch {
+    return null;
+  }
+};
+
 export type AutoReplyInput = AutoReplyPromptInput & {
   model: string;
 };

@@ -461,6 +461,8 @@ export const ConversationsView = ({
     : undefined;
   const senderUsername = senderRow?.sender_username ?? null;
   const senderTgId = senderRow?.sender_tg_id ?? selected?.peerId ?? null;
+  // Name the sender told us they go by (captured from an introduction).
+  const knownName = selectedMeta?.known_name ?? null;
   const selectedStale = Boolean(
     summaryText &&
       selectedMeta?.summarized_through &&
@@ -712,6 +714,12 @@ export const ConversationsView = ({
                   {senderUsername ? <span>@{senderUsername}</span> : null}
                   {senderTgId ? <span>ID: {senderTgId}</span> : null}
                 </p>
+                {knownName ? (
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <User className="h-3 w-3" aria-hidden="true" />
+                    <span>Goes by: {knownName}</span>
+                  </p>
+                ) : null}
                 <p className="text-xs text-muted-foreground">
                   via {selected.accountLabel}
                   {selectedAccount?.archived ? " (removed)" : ""} -{" "}

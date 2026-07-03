@@ -14,6 +14,8 @@ import {
   classifyThreat,
   extractAppointmentDateTime,
   generateAppointmentReply,
+  looksLikeNameStatement,
+  extractStatedName,
   type HistoryLine,
 } from "../openai";
 import { isEmojiOnly, pickSimilarEmoji } from "../emoji";
@@ -189,6 +191,7 @@ const passesAudience = (
 type ConversationMeta = {
   disabled: boolean;
   notes: string | null;
+  knownName: string | null;
   securityStatus: string;
   threatScore: number;
 };
@@ -200,7 +203,7 @@ const getConversationMeta = async (
   const supabase = getServiceClient();
   const { data } = await supabase
     .from("kw_conversations")
-    .select("disabled, notes, security_status, threat_score")
+    .select("disabled, notes, known_name, security_status, threat_score")
     .eq("account_id", accountId)
     .eq("peer_id", peerId)
     .limit(1)
@@ -208,9 +211,30 @@ const getConversationMeta = async (
   return {
     disabled: Boolean(data?.disabled),
     notes: data?.notes ?? null,
+    knownName: data?.known_name ?? null,
     securityStatus: data?.security_status ?? "normal",
     threatScore: data?.threat_score ?? 0,
   };
+};
+
+// Persists the name a sender stated about themselves (upsert on account+peer).
+const setConversationKnownName = async (
+  accountId: string,
+  peerId: string,
+  peerName: string,
+  name: string
+): Promise<void> => {
+  const supabase = getServiceClient();
+  await supabase.from("kw_conversations").upsert(
+    {
+      account_id: accountId,
+      peer_id: peerId,
+      peer_name: peerName,
+      known_name: name,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "account_id,peer_id" }
+  );
 };
 
 // Persists the security state for a conversation (upsert on account+peer).
@@ -1562,6 +1586,28 @@ const processPending = async (pending: PendingMsg): Promise<void> => {
       history = [];
     }
 
+    // Remember a self-stated name. Only hit the LLM when we don't already know
+    // their name or the message looks like an introduction (they may correct it).
+    let senderName = convMeta.knownName;
+    if (!senderName || looksLikeNameStatement(incomingText)) {
+      const stated = await extractStatedName(
+        process.env.OPENAI_MODEL || "gpt-4o-mini",
+        incomingText
+      );
+      if (stated && stated !== senderName) {
+        senderName = stated;
+        const peerName =
+          sender?.firstName ||
+          (sender?.username ? `@${sender.username}` : chatId);
+        try {
+          await setConversationKnownName(accountId, chatId, peerName, stated);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[autoreply ${accountId}] save known_name failed:`, msg);
+        }
+      }
+    }
+
     const reply = await generateAutoReply({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       personaName,
@@ -1583,6 +1629,7 @@ const processPending = async (pending: PendingMsg): Promise<void> => {
       avoid: account.autoreply_avoid,
       signoff: account.autoreply_signoff,
       memory: convMeta.notes,
+      senderName,
       // Avoid the eager assistant / customer-service voice.
       noAssistantTone: account.autoreply_no_assistant_tone,
       // Sender may be probing for a bot; reply extra naturally and deflect.
