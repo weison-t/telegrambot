@@ -14,6 +14,7 @@ import {
   stopAutoResponder,
 } from "../engine/autoResponder";
 import { runPhoneLookupBatch } from "../engine/phoneLookup";
+import { runGroupScrape } from "../engine/groupScrape";
 
 const persistLoggedIn = async (
   accountId: string,
@@ -342,6 +343,48 @@ export const buildServer = () => {
       });
 
       return { ok: true, batchId };
+    }
+  );
+
+  type GroupScrapeBody = {
+    jobId?: string;
+    accountId?: string;
+    input?: string;
+    maxMembers?: number;
+  };
+
+  app.post(
+    "/scrape/group",
+    async (request: FastifyRequest<{ Body: GroupScrapeBody }>, reply) => {
+      const { jobId, accountId, input, maxMembers } = request.body ?? {};
+      if (!jobId || !accountId || !input?.trim()) {
+        return reply
+          .code(400)
+          .send({ error: "jobId, accountId and input are required." });
+      }
+
+      const supabase = getServiceClient();
+      const { data } = await supabase
+        .from("kw_accounts")
+        .select("session_enc")
+        .eq("id", accountId)
+        .single();
+      if (!data?.session_enc) {
+        return reply
+          .code(400)
+          .send({ error: "Account is not logged in. Connect it first." });
+      }
+
+      // Fire-and-forget: the scrape runs in the background and streams progress
+      // to the DB (and the UI via realtime). Return immediately.
+      void runGroupScrape(jobId, accountId, input, maxMembers ?? 10000).catch(
+        (err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[scrape ${jobId}] job failed:`, message);
+        }
+      );
+
+      return { ok: true, jobId };
     }
   );
 

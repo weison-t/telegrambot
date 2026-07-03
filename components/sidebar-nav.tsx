@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Search,
   Megaphone,
+  UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ const navItems: NavItem[] = [
   { href: "/autoreply", label: "Auto-reply", icon: MessageCircleReply },
   { href: "/conversations", label: "Conversations", icon: MessagesSquare },
   { href: "/telegram-id-search", label: "Telegram ID Search", icon: Search },
+  { href: "/group-scrape", label: "Group Scraper", icon: UsersRound },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/campaigns", label: "Campaigns", icon: Swords },
   { href: "/campaigns/new", label: "New campaign", icon: PlusCircle },

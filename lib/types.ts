@@ -38,6 +38,23 @@ export type PhoneLookupResultInsert =
 export type PhoneLookupResultUpdate =
   Tables["kw_phone_lookup_results"]["Update"];
 
+export type GroupScrapeJob = Tables["kw_group_scrape_jobs"]["Row"];
+export type GroupScrapeJobInsert = Tables["kw_group_scrape_jobs"]["Insert"];
+export type GroupScrapeJobUpdate = Tables["kw_group_scrape_jobs"]["Update"];
+
+export type GroupScrapeMember = Tables["kw_group_scrape_members"]["Row"];
+export type GroupScrapeMemberInsert =
+  Tables["kw_group_scrape_members"]["Insert"];
+export type GroupScrapeMemberUpdate =
+  Tables["kw_group_scrape_members"]["Update"];
+
+export type GroupScrapeMethod = "members" | "history";
+export type GroupScrapeStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
+
 export type Broadcast = Tables["kw_broadcasts"]["Row"];
 export type BroadcastInsert = Tables["kw_broadcasts"]["Insert"];
 export type BroadcastUpdate = Tables["kw_broadcasts"]["Update"];

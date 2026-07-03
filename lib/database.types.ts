@@ -366,6 +366,102 @@ export type Database = {
         };
         Relationships: [];
       };
+      kw_group_scrape_jobs: {
+        Row: {
+          account_id: string | null;
+          completed_at: string | null;
+          created_at: string;
+          error: string | null;
+          group_id: string | null;
+          group_input: string;
+          group_title: string | null;
+          id: string;
+          max_members: number;
+          method: string;
+          status: string;
+          total_count: number;
+          used_fallback: boolean;
+        };
+        Insert: {
+          account_id?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          error?: string | null;
+          group_id?: string | null;
+          group_input: string;
+          group_title?: string | null;
+          id?: string;
+          max_members?: number;
+          method?: string;
+          status?: string;
+          total_count?: number;
+          used_fallback?: boolean;
+        };
+        Update: {
+          account_id?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          error?: string | null;
+          group_id?: string | null;
+          group_input?: string;
+          group_title?: string | null;
+          id?: string;
+          max_members?: number;
+          method?: string;
+          status?: string;
+          total_count?: number;
+          used_fallback?: boolean;
+        };
+        Relationships: [];
+      };
+      kw_group_scrape_members: {
+        Row: {
+          created_at: string;
+          details: Json | null;
+          first_name: string | null;
+          id: string;
+          is_admin: boolean | null;
+          is_bot: boolean | null;
+          is_premium: boolean | null;
+          is_verified: boolean | null;
+          job_id: string;
+          last_name: string | null;
+          source: string;
+          telegram_user_id: number | null;
+          username: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          details?: Json | null;
+          first_name?: string | null;
+          id?: string;
+          is_admin?: boolean | null;
+          is_bot?: boolean | null;
+          is_premium?: boolean | null;
+          is_verified?: boolean | null;
+          job_id: string;
+          last_name?: string | null;
+          source?: string;
+          telegram_user_id?: number | null;
+          username?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          details?: Json | null;
+          first_name?: string | null;
+          id?: string;
+          is_admin?: boolean | null;
+          is_bot?: boolean | null;
+          is_premium?: boolean | null;
+          is_verified?: boolean | null;
+          job_id?: string;
+          last_name?: string | null;
+          source?: string;
+          telegram_user_id?: number | null;
+          username?: string | null;
+        };
+        Relationships: [];
+      };
       kw_phone_lookup_batches: {
         Row: {
           account_id: string | null;

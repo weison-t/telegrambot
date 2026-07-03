@@ -56,6 +56,10 @@ const readUserInfo = async (client: TelegramClient): Promise<TelegramUserInfo> =
 class ClientManager {
   private pendingLogins = new Map<string, PendingLogin>();
   private connected = new Map<string, TelegramClient>();
+  // In-flight connects, so concurrent getClient calls for the same account
+  // don't open two connections with the same session (which Telegram rejects
+  // with AUTH_KEY_DUPLICATED).
+  private connecting = new Map<string, Promise<TelegramClient>>();
 
   async startLogin(accountId: string, phone: string): Promise<LoginStartResult> {
     await this.cancelLogin(accountId);
@@ -135,10 +139,36 @@ class ClientManager {
     const existing = this.connected.get(accountId);
     if (existing && existing.connected) return existing;
 
-    const client = buildClient(sessionString);
-    await client.connect();
-    this.connected.set(accountId, client);
-    return client;
+    // Coalesce concurrent connects for the same account.
+    const inflight = this.connecting.get(accountId);
+    if (inflight) return inflight;
+
+    const connectPromise = (async () => {
+      const client = buildClient(sessionString);
+      try {
+        await client.connect();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.includes("AUTH_KEY_DUPLICATED")) {
+          throw new Error(
+            "This account's Telegram session is active from another location " +
+              "(usually another worker running the same account, e.g. a local " +
+              "worker and the Railway worker at once). Stop the other worker, " +
+              "then re-login this account under Accounts. (AUTH_KEY_DUPLICATED)"
+          );
+        }
+        throw err;
+      }
+      this.connected.set(accountId, client);
+      return client;
+    })();
+
+    this.connecting.set(accountId, connectPromise);
+    try {
+      return await connectPromise;
+    } finally {
+      this.connecting.delete(accountId);
+    }
   }
 
   // Lists the groups/channels the account belongs to, for ID lookup.
